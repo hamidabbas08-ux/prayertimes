@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 
 void main() {
   runApp(const PrayerTimesApp());
@@ -37,6 +39,11 @@ class PrayerHomeScreen extends StatefulWidget {
 class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
   int selectedIndex = 0;
 
+  String locationName = 'Makkah, Saudi Arabia';
+  String coordinatesText = '21.4225° N, 39.8262° E';
+  bool isLoadingLocation = false;
+  String? locationError;
+
   final List<PrayerItem> prayers = const [
     PrayerItem(
       englishName: 'Fajr',
@@ -70,6 +77,139 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
       icon: Icons.dark_mode_outlined,
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCurrentLocation();
+    });
+  }
+
+  Future<void> _loadCurrentLocation() async {
+    if (isLoadingLocation) return;
+
+    setState(() {
+      isLoadingLocation = true;
+      locationError = null;
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        throw Exception('Please turn on Location/GPS and tap refresh.');
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied) {
+        throw Exception('Location permission was denied.');
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception(
+          'Location permission is permanently denied. '
+          'Please allow it from App Settings.',
+        );
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 25),
+        ),
+      );
+
+      String detectedLocation = 'Current Location';
+
+      try {
+        final placemarks = await Geocoding().placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+
+          final city = _firstAvailable([
+            place.locality,
+            place.subAdministrativeArea,
+            place.administrativeArea,
+          ]);
+
+          final country = place.country?.trim() ?? '';
+
+          if (city.isNotEmpty && country.isNotEmpty) {
+            detectedLocation = '$city, $country';
+          } else if (city.isNotEmpty) {
+            detectedLocation = city;
+          } else if (country.isNotEmpty) {
+            detectedLocation = country;
+          }
+        }
+      } catch (_) {
+        detectedLocation = 'Current Location';
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        locationName = detectedLocation;
+        coordinatesText = _formatCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        locationError = null;
+        isLoadingLocation = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      final message = error.toString().replaceFirst('Exception: ', '');
+
+      setState(() {
+        isLoadingLocation = false;
+        locationError = message;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: _loadCurrentLocation,
+          ),
+        ),
+      );
+    }
+  }
+
+  String _firstAvailable(List<String?> values) {
+    for (final value in values) {
+      final cleaned = value?.trim() ?? '';
+
+      if (cleaned.isNotEmpty) {
+        return cleaned;
+      }
+    }
+
+    return '';
+  }
+
+  String _formatCoordinates(double latitude, double longitude) {
+    final latitudeDirection = latitude >= 0 ? 'N' : 'S';
+    final longitudeDirection = longitude >= 0 ? 'E' : 'W';
+
+    return '${latitude.abs().toStringAsFixed(4)}° $latitudeDirection, '
+        '${longitude.abs().toStringAsFixed(4)}° $longitudeDirection';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,30 +309,54 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
             ),
           ),
           const SizedBox(width: 13),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Makkah, Saudi Arabia',
-                  style: TextStyle(
+                  isLoadingLocation ? 'Finding your location...' : locationName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: Color(0xFF1E2924),
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
-                  '21.4225° N, 39.8262° E',
-                  style: TextStyle(color: Color(0xFF7B847F), fontSize: 12),
+                  locationError ?? coordinatesText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: locationError == null
+                        ? const Color(0xFF7B847F)
+                        : const Color(0xFFB04444),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF075B3A)),
-          ),
+          const SizedBox(width: 6),
+          if (isLoadingLocation)
+            const SizedBox(
+              width: 42,
+              height: 42,
+              child: Padding(
+                padding: EdgeInsets.all(10),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: Color(0xFF075B3A),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              tooltip: 'Refresh location',
+              onPressed: _loadCurrentLocation,
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF075B3A)),
+            ),
         ],
       ),
     );
@@ -400,7 +564,8 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Indeed, prayer has been decreed upon the believers at specified times.',
+                  'Indeed, prayer has been decreed upon the believers '
+                  'at specified times.',
                   style: TextStyle(
                     color: Color(0xFF405149),
                     fontSize: 13,
@@ -554,17 +719,20 @@ class _PrayerRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '/ ${prayer.arabicName}',
-                  textDirection: TextDirection.rtl,
-                  style: TextStyle(
-                    color: prayer.isNext
-                        ? const Color(0xFF08734A)
-                        : const Color(0xFF6D7671),
-                    fontSize: 15,
-                    fontWeight: prayer.isNext
-                        ? FontWeight.w700
-                        : FontWeight.w500,
+                Flexible(
+                  child: Text(
+                    '/ ${prayer.arabicName}',
+                    textDirection: TextDirection.rtl,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: prayer.isNext
+                          ? const Color(0xFF08734A)
+                          : const Color(0xFF6D7671),
+                      fontSize: 15,
+                      fontWeight: prayer.isNext
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
