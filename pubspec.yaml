@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   geolocator: ^14.0.3
   geocoding: ^5.0.0
+  adhan_dart: ^2.0.1
+  intl: ^0.20.3
 
 dev_dependencies:
   flutter_test:

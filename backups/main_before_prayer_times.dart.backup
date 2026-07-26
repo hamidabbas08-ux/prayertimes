@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
-import 'package:adhan_dart/adhan_dart.dart';
+import 'package:adhan_dart/adhan_dart.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
@@ -630,7 +629,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
                       padding: const EdgeInsets.only(bottom: 3),
                       child: Text(
                         '/ ${prayer.arabicName}',
-                        textDirection: ui.TextDirection.rtl,
+                        textDirection: TextDirection.rtl,
                         style: const TextStyle(
                           color: Color(0xFFE8C76F),
                           fontSize: 23,
@@ -881,7 +880,7 @@ class _PrayerRow extends StatelessWidget {
                 Flexible(
                   child: Text(
                     '/ ${prayer.arabicName}',
-                    textDirection: ui.TextDirection.rtl,
+                    textDirection: TextDirection.rtl,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: isNext
