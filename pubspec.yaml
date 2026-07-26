@@ -38,6 +38,7 @@ dependencies:
   geocoding: ^5.0.0
   adhan_dart: ^2.0.1
   intl: ^0.20.3
+  hijri: ^3.0.1
 
 dev_dependencies:
   flutter_test:

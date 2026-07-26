@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
+import 'package:hijri/hijri_calendar.dart';
 
 void main() {
   runApp(const PrayerTimesApp());
@@ -503,6 +504,10 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
 
   Widget _buildDateCard() {
     final now = currentTime;
+    final hijriDate = HijriCalendar.fromDate(now);
+    final formattedHijriDate =
+        '${hijriDate.hDay} ${hijriDate.getLongMonthName()} '
+        '${hijriDate.hYear} AH';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -513,9 +518,9 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Today',
-                  style: TextStyle(
+                Text(
+                  formattedHijriDate,
+                  style: const TextStyle(
                     color: Color(0xFF26332D),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
