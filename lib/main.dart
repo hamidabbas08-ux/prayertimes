@@ -7,8 +7,11 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:hijri/hijri_calendar.dart';
+import 'package:prayertimes/services/notification_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.instance.initialize();
   runApp(const PrayerTimesApp());
 }
 
@@ -383,6 +386,34 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
     );
   }
 
+  Future<void> _showTestNotification() async {
+    final permissionGranted = await NotificationService.instance
+        .requestNotificationPermission();
+
+    if (!mounted) return;
+
+    if (!permissionGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Notification permission is required for prayer alerts.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    await NotificationService.instance.showTestNotification();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Test notification sent. Check the notification panel.'),
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
@@ -403,7 +434,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
           ),
           _roundIconButton(
             icon: Icons.notifications_none_rounded,
-            onTap: () {},
+            onTap: _showTestNotification,
           ),
         ],
       ),
