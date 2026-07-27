@@ -45,7 +45,8 @@ class PrayerHomeScreen extends StatefulWidget {
   State<PrayerHomeScreen> createState() => _PrayerHomeScreenState();
 }
 
-class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
+class _PrayerHomeScreenState extends State<PrayerHomeScreen>
+    with WidgetsBindingObserver {
   int selectedIndex = 0;
 
   String locationName = 'Finding your location...';
@@ -53,6 +54,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
   String? locationError;
   bool isLoadingLocation = false;
   bool isConfiguringPrayerAlerts = false;
+  bool hasLoadedCurrentLocation = false;
 
   double latitude = 24.1969;
   double longitude = 55.7625;
@@ -67,6 +69,8 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
   @override
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
 
     _calculatePrayerTimes();
 
@@ -86,8 +90,24 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     countdownTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (!hasLoadedCurrentLocation) return;
+
+    Future<void>.delayed(const Duration(milliseconds: 700), () async {
+      if (!mounted) return;
+
+      await _configurePrayerAlerts(
+        showSuccessMessage: false,
+        requestPermissions: false,
+      );
+    });
   }
 
   Future<void> _loadCurrentLocation() async {
@@ -172,6 +192,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
         );
         locationError = null;
         isLoadingLocation = false;
+        hasLoadedCurrentLocation = true;
 
         _calculatePrayerTimes();
       });
