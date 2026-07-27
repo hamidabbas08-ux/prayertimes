@@ -75,6 +75,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
 
   Timer? countdownTimer;
   DateTime currentTime = DateTime.now();
+  DateTime timetableMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
   List<PrayerItem> prayers = [];
   PrayerItem? nextPrayer;
@@ -409,11 +410,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
       case 1:
         return _buildQiblaScreen();
       case 2:
-        return _buildComingSoonScreen(
-          icon: Icons.calendar_month_rounded,
-          title: 'Prayer Timetable',
-          message: 'Monthly prayer timetable will be available here.',
-        );
+        return _buildTimetableScreen();
       case 3:
         return _buildComingSoonScreen(
           icon: Icons.menu_book_rounded,
@@ -456,6 +453,301 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTimetableScreen() {
+    final monthlyRows = _buildMonthlyPrayerRows();
+    final currentMonth = DateFormat('MMMM yyyy').format(timetableMonth);
+
+    return Column(
+      children: [
+        _buildSimplePageHeader('Prayer Timetable'),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+            child: Column(
+              children: [
+                _buildTimetableLocationCard(),
+                const SizedBox(height: 14),
+                _buildMonthSelector(currentMonth),
+                const SizedBox(height: 14),
+                _buildTimetableTable(monthlyRows),
+                const SizedBox(height: 14),
+                _buildTimetableNote(),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<MonthlyPrayerRow> _buildMonthlyPrayerRows() {
+    final rows = <MonthlyPrayerRow>[];
+    final coordinates = Coordinates(latitude, longitude);
+
+    final parameters = CalculationMethodParameters.dubai()
+      ..madhab = Madhab.shafi;
+
+    final numberOfDays = DateTime(
+      timetableMonth.year,
+      timetableMonth.month + 1,
+      0,
+    ).day;
+
+    for (var day = 1; day <= numberOfDays; day++) {
+      final date = DateTime(timetableMonth.year, timetableMonth.month, day);
+
+      final calculated = PrayerTimes(
+        coordinates: coordinates,
+        date: date,
+        calculationParameters: parameters,
+        precision: true,
+      );
+
+      rows.add(
+        MonthlyPrayerRow(
+          date: date,
+          fajr: calculated.fajr.toLocal(),
+          dhuhr: calculated.dhuhr.toLocal(),
+          asr: calculated.asr.toLocal(),
+          maghrib: calculated.maghrib.toLocal(),
+          isha: calculated.isha.toLocal(),
+        ),
+      );
+    }
+
+    return rows;
+  }
+
+  Widget _buildTimetableLocationCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: _whiteCardDecoration(),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F3ED),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.location_on_outlined,
+              color: Color(0xFF08734A),
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  locationName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF223029),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  coordinatesText,
+                  style: const TextStyle(
+                    color: Color(0xFF747D78),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Refresh location and timetable',
+            onPressed: _loadCurrentLocation,
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF08734A)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthSelector(String currentMonth) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+      decoration: _whiteCardDecoration(),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Previous month',
+            onPressed: () {
+              setState(() {
+                timetableMonth = DateTime(
+                  timetableMonth.year,
+                  timetableMonth.month - 1,
+                );
+              });
+            },
+            icon: const Icon(
+              Icons.chevron_left_rounded,
+              color: Color(0xFF08734A),
+              size: 30,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Text(
+                  currentMonth,
+                  style: const TextStyle(
+                    color: Color(0xFF075B3A),
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Monthly prayer times',
+                  style: TextStyle(color: Color(0xFF7A837E), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Next month',
+            onPressed: () {
+              setState(() {
+                timetableMonth = DateTime(
+                  timetableMonth.year,
+                  timetableMonth.month + 1,
+                );
+              });
+            },
+            icon: const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFF08734A),
+              size: 30,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimetableTable(List<MonthlyPrayerRow> rows) {
+    return Container(
+      width: double.infinity,
+      decoration: _whiteCardDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Container(
+            color: const Color(0xFF087247),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 13),
+            child: const Row(
+              children: [
+                Expanded(flex: 13, child: _TimetableHeading('Date')),
+                Expanded(flex: 17, child: _TimetableHeading('Fajr')),
+                Expanded(flex: 17, child: _TimetableHeading('Dhuhr')),
+                Expanded(flex: 17, child: _TimetableHeading('Asr')),
+                Expanded(flex: 18, child: _TimetableHeading('Maghrib')),
+                Expanded(flex: 18, child: _TimetableHeading('Isha')),
+              ],
+            ),
+          ),
+          ...List.generate(rows.length, (index) {
+            final row = rows[index];
+            final today = DateTime.now();
+
+            final isToday =
+                row.date.year == today.year &&
+                row.date.month == today.month &&
+                row.date.day == today.day;
+
+            return Container(
+              color: isToday
+                  ? const Color(0xFFE2F2E9)
+                  : index.isEven
+                  ? const Color(0xFFFFFDF9)
+                  : const Color(0xFFF7F8F5),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 11),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 13,
+                    child: Text(
+                      row.date.day.toString().padLeft(2, '0'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isToday
+                            ? const Color(0xFF08734A)
+                            : const Color(0xFF313C37),
+                        fontSize: 12,
+                        fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Expanded(flex: 17, child: _timetableTime(row.fajr, isToday)),
+                  Expanded(flex: 17, child: _timetableTime(row.dhuhr, isToday)),
+                  Expanded(flex: 17, child: _timetableTime(row.asr, isToday)),
+                  Expanded(
+                    flex: 18,
+                    child: _timetableTime(row.maghrib, isToday),
+                  ),
+                  Expanded(flex: 18, child: _timetableTime(row.isha, isToday)),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _timetableTime(DateTime time, bool isToday) {
+    return Text(
+      DateFormat('hh:mm').format(time),
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: isToday ? const Color(0xFF08734A) : const Color(0xFF35413B),
+        fontSize: 11,
+        fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+      ),
+    );
+  }
+
+  Widget _buildTimetableNote() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF4EE),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFCFE4D7)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: Color(0xFF08734A), size: 24),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Prayer times are calculated from your current location '
+              'using the Dubai calculation method and Shafi Madhab.',
+              style: TextStyle(
+                color: Color(0xFF405149),
+                fontSize: 12,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1639,6 +1931,43 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
           offset: Offset(0, 4),
         ),
       ],
+    );
+  }
+}
+
+class MonthlyPrayerRow {
+  const MonthlyPrayerRow({
+    required this.date,
+    required this.fajr,
+    required this.dhuhr,
+    required this.asr,
+    required this.maghrib,
+    required this.isha,
+  });
+
+  final DateTime date;
+  final DateTime fajr;
+  final DateTime dhuhr;
+  final DateTime asr;
+  final DateTime maghrib;
+  final DateTime isha;
+}
+
+class _TimetableHeading extends StatelessWidget {
+  const _TimetableHeading(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 }
