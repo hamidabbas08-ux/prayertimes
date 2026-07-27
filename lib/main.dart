@@ -9,6 +9,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:hijri/hijri_calendar.dart';
+import 'package:prayertimes/screens/duas_screen.dart';
 import 'package:prayertimes/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -412,12 +413,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
       case 2:
         return _buildTimetableScreen();
       case 3:
-        return _buildComingSoonScreen(
-          icon: Icons.menu_book_rounded,
-          title: 'Duas',
-          message:
-              'Daily Duas and Islamic supplications will be available here.',
-        );
+        return const DuasScreen();
       case 4:
         return _buildComingSoonScreen(
           icon: Icons.more_horiz_rounded,
