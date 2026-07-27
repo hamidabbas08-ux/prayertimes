@@ -52,6 +52,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
   String coordinatesText = '';
   String? locationError;
   bool isLoadingLocation = false;
+  bool isConfiguringPrayerAlerts = false;
 
   double latitude = 24.1969;
   double longitude = 55.7625;
@@ -174,6 +175,11 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
 
         _calculatePrayerTimes();
       });
+
+      await _configurePrayerAlerts(
+        showSuccessMessage: false,
+        requestPermissions: true,
+      );
     } catch (error) {
       if (!mounted) return;
 
@@ -386,53 +392,169 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
     );
   }
 
-  Future<void> _showTestNotification() async {
-    final notificationPermission = await NotificationService.instance
-        .requestNotificationPermission();
+  List<PrayerNotificationSchedule> _buildThirtyDayPrayerSchedules() {
+    final schedules = <PrayerNotificationSchedule>[];
+    final coordinates = Coordinates(latitude, longitude);
 
-    if (!mounted) return;
+    final parameters = CalculationMethodParameters.dubai()
+      ..madhab = Madhab.shafi;
 
-    if (!notificationPermission) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Notification permission is required for Azan alerts.'),
-        ),
+    final startingDate = DateTime.now();
+
+    for (var dayOffset = 0; dayOffset < 30; dayOffset++) {
+      final date = DateTime(
+        startingDate.year,
+        startingDate.month,
+        startingDate.day + dayOffset,
       );
-      return;
-    }
 
-    final exactAlarmPermission = await NotificationService.instance
-        .requestExactAlarmPermission();
+      final calculated = PrayerTimes(
+        coordinates: coordinates,
+        date: date,
+        calculationParameters: parameters,
+        precision: true,
+      );
 
-    if (!mounted) return;
+      final dailyPrayers = [
+        (
+          englishName: 'Fajr',
+          arabicName: 'الفجر',
+          dateTime: calculated.fajr.toLocal(),
+        ),
+        (
+          englishName: 'Dhuhr',
+          arabicName: 'الظهر',
+          dateTime: calculated.dhuhr.toLocal(),
+        ),
+        (
+          englishName: 'Asr',
+          arabicName: 'العصر',
+          dateTime: calculated.asr.toLocal(),
+        ),
+        (
+          englishName: 'Maghrib',
+          arabicName: 'المغرب',
+          dateTime: calculated.maghrib.toLocal(),
+        ),
+        (
+          englishName: 'Isha',
+          arabicName: 'العشاء',
+          dateTime: calculated.isha.toLocal(),
+        ),
+      ];
 
-    if (!exactAlarmPermission) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please allow Alarms and reminders, then tap the bell again.',
+      for (
+        var prayerIndex = 0;
+        prayerIndex < dailyPrayers.length;
+        prayerIndex++
+      ) {
+        final prayer = dailyPrayers[prayerIndex];
+
+        schedules.add(
+          PrayerNotificationSchedule(
+            id: 3000 + (dayOffset * 5) + prayerIndex,
+            englishName: prayer.englishName,
+            arabicName: prayer.arabicName,
+            dateTime: prayer.dateTime,
           ),
-          duration: Duration(seconds: 5),
-        ),
-      );
-      return;
+        );
+      }
     }
 
-    final scheduledTime = await NotificationService.instance
-        .scheduleTwoMinuteAzanTest();
+    return schedules;
+  }
 
-    if (!mounted) return;
+  Future<void> _configurePrayerAlerts({
+    required bool showSuccessMessage,
+    required bool requestPermissions,
+  }) async {
+    if (isConfiguringPrayerAlerts) return;
 
-    final hour = scheduledTime.hour.toString().padLeft(2, '0');
-    final minute = scheduledTime.minute.toString().padLeft(2, '0');
+    isConfiguringPrayerAlerts = true;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Azan test scheduled for $hour:$minute. You may close the app.',
+    try {
+      var notificationPermission = true;
+
+      if (requestPermissions) {
+        notificationPermission = await NotificationService.instance
+            .requestNotificationPermission();
+      }
+
+      if (!mounted) return;
+
+      if (!notificationPermission) {
+        if (showSuccessMessage) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Notification permission is required for Azan alerts.',
+              ),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+
+      var exactAlarmAllowed = await NotificationService.instance
+          .canScheduleExactAlarms();
+
+      if (!exactAlarmAllowed && requestPermissions) {
+        await NotificationService.instance.requestExactAlarmPermission();
+
+        exactAlarmAllowed = await NotificationService.instance
+            .canScheduleExactAlarms();
+      }
+
+      if (!mounted) return;
+
+      if (!exactAlarmAllowed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Please enable Alarms and reminders, then return to the app.',
+            ),
+            duration: Duration(seconds: 6),
+          ),
+        );
+        return;
+      }
+
+      final schedules = _buildThirtyDayPrayerSchedules();
+
+      final scheduledCount = await NotificationService.instance
+          .schedulePrayerNotifications(schedules);
+
+      if (!mounted) return;
+
+      if (showSuccessMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$scheduledCount Azan alerts scheduled for the next 30 days.',
+            ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not schedule Azan alerts: $error'),
+          duration: const Duration(seconds: 6),
         ),
-        duration: const Duration(seconds: 5),
-      ),
+      );
+    } finally {
+      isConfiguringPrayerAlerts = false;
+    }
+  }
+
+  Future<void> _showTestNotification() async {
+    await _configurePrayerAlerts(
+      showSuccessMessage: true,
+      requestPermissions: true,
     );
   }
 
