@@ -386,78 +386,6 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
     );
   }
 
-  List<PrayerNotificationSchedule> _buildSevenDayPrayerSchedules() {
-    final schedules = <PrayerNotificationSchedule>[];
-    final coordinates = Coordinates(latitude, longitude);
-
-    final parameters = CalculationMethodParameters.dubai()
-      ..madhab = Madhab.shafi;
-
-    final startingDate = DateTime.now();
-
-    for (var dayOffset = 0; dayOffset < 7; dayOffset++) {
-      final date = DateTime(
-        startingDate.year,
-        startingDate.month,
-        startingDate.day + dayOffset,
-      );
-
-      final calculated = PrayerTimes(
-        coordinates: coordinates,
-        date: date,
-        calculationParameters: parameters,
-        precision: true,
-      );
-
-      final dailyPrayers = [
-        (
-          englishName: 'Fajr',
-          arabicName: 'الفجر',
-          dateTime: calculated.fajr.toLocal(),
-        ),
-        (
-          englishName: 'Dhuhr',
-          arabicName: 'الظهر',
-          dateTime: calculated.dhuhr.toLocal(),
-        ),
-        (
-          englishName: 'Asr',
-          arabicName: 'العصر',
-          dateTime: calculated.asr.toLocal(),
-        ),
-        (
-          englishName: 'Maghrib',
-          arabicName: 'المغرب',
-          dateTime: calculated.maghrib.toLocal(),
-        ),
-        (
-          englishName: 'Isha',
-          arabicName: 'العشاء',
-          dateTime: calculated.isha.toLocal(),
-        ),
-      ];
-
-      for (
-        var prayerIndex = 0;
-        prayerIndex < dailyPrayers.length;
-        prayerIndex++
-      ) {
-        final prayer = dailyPrayers[prayerIndex];
-
-        schedules.add(
-          PrayerNotificationSchedule(
-            id: 3000 + (dayOffset * 5) + prayerIndex,
-            englishName: prayer.englishName,
-            arabicName: prayer.arabicName,
-            dateTime: prayer.dateTime,
-          ),
-        );
-      }
-    }
-
-    return schedules;
-  }
-
   Future<void> _showTestNotification() async {
     final notificationPermission = await NotificationService.instance
         .requestNotificationPermission();
@@ -467,9 +395,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
     if (!notificationPermission) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Notification permission is required for prayer alerts.',
-          ),
+          content: Text('Notification permission is required for Azan alerts.'),
         ),
       );
       return;
@@ -492,17 +418,18 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
       return;
     }
 
-    final schedules = _buildSevenDayPrayerSchedules();
-
-    final scheduledCount = await NotificationService.instance
-        .schedulePrayerNotifications(schedules);
+    final scheduledTime = await NotificationService.instance
+        .scheduleTwoMinuteAzanTest();
 
     if (!mounted) return;
+
+    final hour = scheduledTime.hour.toString().padLeft(2, '0');
+    final minute = scheduledTime.minute.toString().padLeft(2, '0');
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '$scheduledCount prayer alerts scheduled for the next 7 days.',
+          'Azan test scheduled for $hour:$minute. You may close the app.',
         ),
         duration: const Duration(seconds: 5),
       ),

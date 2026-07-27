@@ -150,6 +150,61 @@ class NotificationService {
     return scheduledCount;
   }
 
+  Future<DateTime> scheduleTwoMinuteAzanTest() async {
+    const azanTestChannelId = 'azan_test_channel_v1';
+    const azanTestChannelName = 'Azan Test';
+    const azanSound = RawResourceAndroidNotificationSound('azan_normal');
+
+    const channel = AndroidNotificationChannel(
+      azanTestChannelId,
+      azanTestChannelName,
+      description: 'Testing the Azan notification sound',
+      importance: Importance.max,
+      playSound: true,
+      sound: azanSound,
+      enableVibration: true,
+    );
+
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
+    await androidPlugin?.createNotificationChannel(channel);
+
+    final scheduledDate = tz.TZDateTime.now(
+      tz.local,
+    ).add(const Duration(minutes: 2));
+
+    const androidDetails = AndroidNotificationDetails(
+      azanTestChannelId,
+      azanTestChannelName,
+      channelDescription: 'Testing the Azan notification sound',
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      sound: azanSound,
+      enableVibration: true,
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
+      ticker: 'Azan test notification',
+    );
+
+    const notificationDetails = NotificationDetails(android: androidDetails);
+
+    await _plugin.zonedSchedule(
+      id: 2101,
+      title: 'Azan Test',
+      body: 'The custom Azan sound is working.',
+      scheduledDate: scheduledDate,
+      notificationDetails: notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: 'azan_test',
+    );
+
+    return scheduledDate.toLocal();
+  }
+
   Future<void> showTestNotification() async {
     const androidDetails = AndroidNotificationDetails(
       _channelId,
