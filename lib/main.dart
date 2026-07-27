@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:prayertimes/services/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,6 +56,17 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
   bool isLoadingLocation = false;
   bool isConfiguringPrayerAlerts = false;
   bool hasLoadedCurrentLocation = false;
+  bool prayerPreferencesLoaded = false;
+
+  final SharedPreferencesAsync prayerPreferences = SharedPreferencesAsync();
+
+  final Map<String, bool> enabledPrayerAlerts = {
+    'Fajr': true,
+    'Dhuhr': true,
+    'Asr': true,
+    'Maghrib': true,
+    'Isha': true,
+  };
 
   double latitude = 24.1969;
   double longitude = 55.7625;
@@ -72,6 +84,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
 
     WidgetsBinding.instance.addObserver(this);
 
+    _loadPrayerAlertPreferences();
     _calculatePrayerTimes();
 
     countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -413,6 +426,59 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
     );
   }
 
+  Future<void> _loadPrayerAlertPreferences() async {
+    final loadedValues = <String, bool>{};
+
+    for (final prayerName in enabledPrayerAlerts.keys) {
+      final storedValue = await prayerPreferences.getBool(
+        'prayer_alert_${prayerName.toLowerCase()}',
+      );
+
+      loadedValues[prayerName] = storedValue ?? true;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      enabledPrayerAlerts.addAll(loadedValues);
+      prayerPreferencesLoaded = true;
+    });
+  }
+
+  Future<void> _togglePrayerAlert(String prayerName) async {
+    final currentlyEnabled = enabledPrayerAlerts[prayerName] ?? true;
+    final newValue = !currentlyEnabled;
+
+    setState(() {
+      enabledPrayerAlerts[prayerName] = newValue;
+    });
+
+    await prayerPreferences.setBool(
+      'prayer_alert_${prayerName.toLowerCase()}',
+      newValue,
+    );
+
+    if (!mounted) return;
+
+    await _configurePrayerAlerts(
+      showSuccessMessage: false,
+      requestPermissions: newValue,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          newValue
+              ? '$prayerName Azan alert turned on.'
+              : '$prayerName Azan alert turned off.',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   List<PrayerNotificationSchedule> _buildThirtyDayPrayerSchedules() {
     final schedules = <PrayerNotificationSchedule>[];
     final coordinates = Coordinates(latitude, longitude);
@@ -471,6 +537,12 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
       ) {
         final prayer = dailyPrayers[prayerIndex];
 
+        final isEnabled = enabledPrayerAlerts[prayer.englishName] ?? true;
+
+        if (!isEnabled) {
+          continue;
+        }
+
         schedules.add(
           PrayerNotificationSchedule(
             id: 3000 + (dayOffset * 5) + prayerIndex,
@@ -490,6 +562,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
     required bool requestPermissions,
   }) async {
     if (isConfiguringPrayerAlerts) return;
+    if (!prayerPreferencesLoaded) return;
 
     isConfiguringPrayerAlerts = true;
 
@@ -879,6 +952,10 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
                 prayer: prayer,
                 isNext: _isSamePrayer(prayer),
                 formattedTime: _formatPrayerTime(prayer.dateTime),
+                alertEnabled: enabledPrayerAlerts[prayer.englishName] ?? true,
+                onAlertTap: () {
+                  _togglePrayerAlert(prayer.englishName);
+                },
               ),
               if (index != prayers.length - 1)
                 const Divider(
@@ -1038,11 +1115,15 @@ class _PrayerRow extends StatelessWidget {
   final PrayerItem prayer;
   final bool isNext;
   final String formattedTime;
+  final bool alertEnabled;
+  final VoidCallback onAlertTap;
 
   const _PrayerRow({
     required this.prayer,
     required this.isNext,
     required this.formattedTime,
+    required this.alertEnabled,
+    required this.onAlertTap,
   });
 
   @override
@@ -1104,11 +1185,24 @@ class _PrayerRow extends StatelessWidget {
               fontWeight: isNext ? FontWeight.w700 : FontWeight.w600,
             ),
           ),
-          const SizedBox(width: 9),
-          const Icon(
-            Icons.volume_up_outlined,
-            color: Color(0xFF08734A),
-            size: 20,
+          const SizedBox(width: 5),
+          IconButton(
+            tooltip: alertEnabled
+                ? 'Turn off ${prayer.englishName} Azan'
+                : 'Turn on ${prayer.englishName} Azan',
+            onPressed: onAlertTap,
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+            icon: Icon(
+              alertEnabled
+                  ? Icons.volume_up_outlined
+                  : Icons.volume_off_outlined,
+              color: alertEnabled
+                  ? const Color(0xFF08734A)
+                  : const Color(0xFF9A9F9C),
+              size: 21,
+            ),
           ),
         ],
       ),
