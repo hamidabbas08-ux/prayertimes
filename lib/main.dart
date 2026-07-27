@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:adhan_dart/adhan_dart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
@@ -397,32 +399,578 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      body: SafeArea(child: _buildSelectedPage()),
+      bottomNavigationBar: _buildBottomNavigation(),
+    );
+  }
+
+  Widget _buildSelectedPage() {
+    switch (selectedIndex) {
+      case 1:
+        return _buildQiblaScreen();
+      case 2:
+        return _buildComingSoonScreen(
+          icon: Icons.calendar_month_rounded,
+          title: 'Prayer Timetable',
+          message: 'Monthly prayer timetable will be available here.',
+        );
+      case 3:
+        return _buildComingSoonScreen(
+          icon: Icons.menu_book_rounded,
+          title: 'Duas',
+          message:
+              'Daily Duas and Islamic supplications will be available here.',
+        );
+      case 4:
+        return _buildComingSoonScreen(
+          icon: Icons.more_horiz_rounded,
+          title: 'More',
+          message: 'Settings and additional features will be available here.',
+        );
+      case 0:
+      default:
+        return _buildHomeScreen();
+    }
+  }
+
+  Widget _buildHomeScreen() {
+    return Column(
+      children: [
+        _buildHeader(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: Column(
+              children: [
+                _buildLocationCard(),
+                const SizedBox(height: 12),
+                _buildDateCard(),
+                const SizedBox(height: 12),
+                _buildNextPrayerCard(),
+                const SizedBox(height: 14),
+                _buildPrayerList(),
+                const SizedBox(height: 18),
+                _buildDailyMessage(),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildComingSoonScreen({
+    required IconData icon,
+    required String title,
+    required String message,
+  }) {
+    return Column(
+      children: [
+        _buildSimplePageHeader(title),
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(26),
+                decoration: _whiteCardDecoration(),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildLocationCard(),
-                    const SizedBox(height: 12),
-                    _buildDateCard(),
-                    const SizedBox(height: 12),
-                    _buildNextPrayerCard(),
-                    const SizedBox(height: 14),
-                    _buildPrayerList(),
+                    Container(
+                      width: 76,
+                      height: 76,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE8F3ED),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        icon,
+                        color: const Color(0xFF08734A),
+                        size: 38,
+                      ),
+                    ),
                     const SizedBox(height: 18),
-                    _buildDailyMessage(),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF075B3A),
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF68736D),
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-          ],
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildSimplePageHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+      child: Row(
+        children: [
+          _roundIconButton(
+            icon: Icons.arrow_back_rounded,
+            onTap: () {
+              setState(() {
+                selectedIndex = 0;
+              });
+            },
+          ),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF075B3A),
+                fontSize: 23,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+          const SizedBox(width: 44),
+        ],
       ),
-      bottomNavigationBar: _buildBottomNavigation(),
+    );
+  }
+
+  double _calculateQiblaBearing() {
+    const kaabaLatitude = 21.4225;
+    const kaabaLongitude = 39.8262;
+
+    final userLatitudeRadians = latitude * math.pi / 180;
+    final userLongitudeRadians = longitude * math.pi / 180;
+    final kaabaLatitudeRadians = kaabaLatitude * math.pi / 180;
+    final kaabaLongitudeRadians = kaabaLongitude * math.pi / 180;
+
+    final longitudeDifference = kaabaLongitudeRadians - userLongitudeRadians;
+
+    final y = math.sin(longitudeDifference) * math.cos(kaabaLatitudeRadians);
+
+    final x =
+        math.cos(userLatitudeRadians) * math.sin(kaabaLatitudeRadians) -
+        math.sin(userLatitudeRadians) *
+            math.cos(kaabaLatitudeRadians) *
+            math.cos(longitudeDifference);
+
+    final bearing = math.atan2(y, x) * 180 / math.pi;
+
+    return (bearing + 360) % 360;
+  }
+
+  String _cardinalDirection(double degrees) {
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+    final index = ((degrees + 22.5) ~/ 45) % 8;
+    return directions[index];
+  }
+
+  double _smallestAngleDifference(double first, double second) {
+    final difference = (first - second).abs() % 360;
+    return difference > 180 ? 360 - difference : difference;
+  }
+
+  Widget _buildQiblaScreen() {
+    final qiblaBearing = _calculateQiblaBearing();
+    final compassEvents = FlutterCompass.events;
+
+    return Column(
+      children: [
+        _buildSimplePageHeader('Qibla Direction'),
+        Expanded(
+          child: StreamBuilder<CompassEvent>(
+            stream: compassEvents,
+            builder: (context, snapshot) {
+              final heading = snapshot.data?.heading;
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                child: Column(
+                  children: [
+                    _buildQiblaLocationCard(qiblaBearing),
+                    const SizedBox(height: 18),
+                    if (heading == null)
+                      _buildCompassUnavailableCard()
+                    else
+                      _buildLiveCompass(
+                        heading: heading,
+                        qiblaBearing: qiblaBearing,
+                      ),
+                    const SizedBox(height: 18),
+                    _buildQiblaInstructions(),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQiblaLocationCard(double qiblaBearing) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(17),
+      decoration: _whiteCardDecoration(),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F3ED),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: const Icon(
+              Icons.location_on_outlined,
+              color: Color(0xFF08734A),
+              size: 29,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  locationName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF223029),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Qibla bearing ${qiblaBearing.toStringAsFixed(1)}° '
+                  '${_cardinalDirection(qiblaBearing)}',
+                  style: const TextStyle(
+                    color: Color(0xFF737D77),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Refresh location',
+            onPressed: _loadCurrentLocation,
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF08734A)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveCompass({
+    required double heading,
+    required double qiblaBearing,
+  }) {
+    final normalizedHeading = (heading + 360) % 360;
+    final rotationDegrees = (qiblaBearing - normalizedHeading + 360) % 360;
+    final angleDifference = _smallestAngleDifference(
+      normalizedHeading,
+      qiblaBearing,
+    );
+
+    final isFacingQibla = angleDifference <= 5;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 22),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(25),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF087247), Color(0xFF03462F)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33004B31),
+            blurRadius: 20,
+            offset: Offset(0, 9),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            isFacingQibla ? 'Facing Qibla' : 'Turn towards the arrow',
+            style: TextStyle(
+              color: isFacingQibla ? const Color(0xFFF5D77C) : Colors.white,
+              fontSize: 21,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            isFacingQibla
+                ? 'You are aligned with the Kaaba'
+                : '${angleDifference.toStringAsFixed(0)}° away from Qibla',
+            style: const TextStyle(color: Color(0xFFD8EAE0), fontSize: 13),
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            width: 285,
+            height: 285,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 275,
+                  height: 275,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0x14FFFFFF),
+                    border: Border.all(
+                      color: isFacingQibla
+                          ? const Color(0xFFF5D77C)
+                          : const Color(0x66FFFFFF),
+                      width: isFacingQibla ? 3 : 2,
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  top: 13,
+                  child: Text(
+                    'N',
+                    style: TextStyle(
+                      color: Color(0xFFF5D77C),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  right: 17,
+                  child: Text(
+                    'E',
+                    style: TextStyle(
+                      color: Color(0xFFD8EAE0),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  bottom: 13,
+                  child: Text(
+                    'S',
+                    style: TextStyle(
+                      color: Color(0xFFD8EAE0),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  left: 17,
+                  child: Text(
+                    'W',
+                    style: TextStyle(
+                      color: Color(0xFFD8EAE0),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Transform.rotate(
+                  angle: rotationDegrees * math.pi / 180,
+                  child: SizedBox(
+                    width: 210,
+                    height: 210,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned(
+                          top: 4,
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.navigation_rounded,
+                                color: isFacingQibla
+                                    ? const Color(0xFFF5D77C)
+                                    : Colors.white,
+                                size: 66,
+                              ),
+                              const SizedBox(height: 2),
+                              const Icon(
+                                Icons.mosque_rounded,
+                                color: Color(0xFFF5D77C),
+                                size: 32,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFFFFFDF8),
+                    border: Border.all(
+                      color: const Color(0xFFF5D77C),
+                      width: 3,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x33000000), blurRadius: 12),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.mosque_outlined,
+                    color: Color(0xFF087247),
+                    size: 43,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _qiblaReadingTile(
+                  label: 'Phone heading',
+                  value:
+                      '${normalizedHeading.toStringAsFixed(0)}° '
+                      '${_cardinalDirection(normalizedHeading)}',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _qiblaReadingTile(
+                  label: 'Qibla direction',
+                  value:
+                      '${qiblaBearing.toStringAsFixed(0)}° '
+                      '${_cardinalDirection(qiblaBearing)}',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _qiblaReadingTile({required String label, required String value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0x18FFFFFF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x28FFFFFF)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFFCFE3D8), fontSize: 11),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompassUnavailableCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: _whiteCardDecoration(),
+      child: const Column(
+        children: [
+          Icon(Icons.explore_off_outlined, color: Color(0xFF9A6A37), size: 56),
+          SizedBox(height: 15),
+          Text(
+            'Compass sensor unavailable',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF27342E),
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Move the phone in a figure-eight motion. If the compass '
+            'still does not appear, this device may not include a '
+            'magnetic compass sensor.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF707A74),
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQiblaInstructions() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF4EE),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFCFE4D7)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: Color(0xFF08734A), size: 25),
+          SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              'Keep the phone flat and away from metal objects, magnets '
+              'and electrical equipment. Turn slowly until the arrow '
+              'points straight ahead and “Facing Qibla” appears.',
+              style: TextStyle(
+                color: Color(0xFF405149),
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
