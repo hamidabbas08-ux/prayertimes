@@ -403,13 +403,36 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen> {
       return;
     }
 
-    await NotificationService.instance.showTestNotification();
+    final exactAlarmGranted = await NotificationService.instance
+        .requestExactAlarmPermission();
 
     if (!mounted) return;
 
+    if (!exactAlarmGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please allow exact alarms for scheduled prayer notifications.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final scheduledTime = await NotificationService.instance
+        .scheduleTwoMinuteTestNotification();
+
+    if (!mounted) return;
+
+    final hour = scheduledTime.hour.toString().padLeft(2, '0');
+    final minute = scheduledTime.minute.toString().padLeft(2, '0');
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Test notification sent. Check the notification panel.'),
+      SnackBar(
+        content: Text(
+          'Notification scheduled for $hour:$minute. You may close the app.',
+        ),
+        duration: const Duration(seconds: 5),
       ),
     );
   }
