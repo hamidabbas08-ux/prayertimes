@@ -61,6 +61,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
   bool isConfiguringPrayerAlerts = false;
   bool hasLoadedCurrentLocation = false;
   bool prayerPreferencesLoaded = false;
+  String selectedTimeFormat = '12-hour';
 
   final SharedPreferencesAsync prayerPreferences = SharedPreferencesAsync();
 
@@ -90,6 +91,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
     WidgetsBinding.instance.addObserver(this);
 
     _loadPrayerAlertPreferences();
+    _loadTimeFormatPreference();
     _calculatePrayerTimes();
 
     countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -376,8 +378,39 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
         '${longitude.abs().toStringAsFixed(4)}° $longitudeDirection';
   }
 
+  Future<void> _loadTimeFormatPreference() async {
+    final storedFormat = await prayerPreferences.getString('time_format');
+
+    if (!mounted) return;
+
+    setState(() {
+      selectedTimeFormat = storedFormat ?? '12-hour';
+    });
+  }
+
+  Future<void> _changeTimeFormat(String format) async {
+    if (selectedTimeFormat == format) return;
+
+    setState(() {
+      selectedTimeFormat = format;
+    });
+
+    await prayerPreferences.setString('time_format', format);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Time format changed to $format.'),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   String _formatPrayerTime(DateTime time) {
-    return DateFormat('hh:mm a').format(time);
+    final pattern = selectedTimeFormat == '24-hour' ? 'HH:mm' : 'hh:mm a';
+
+    return DateFormat(pattern).format(time);
   }
 
   String _formatCountdown(Duration duration) {
@@ -424,6 +457,8 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
               .length,
           isRefreshingLocation: isLoadingLocation,
           isSchedulingAlerts: isConfiguringPrayerAlerts,
+          timeFormat: selectedTimeFormat,
+          onTimeFormatChanged: _changeTimeFormat,
           onRefreshLocation: _loadCurrentLocation,
           onRefreshAzanSchedule: () async {
             await _configurePrayerAlerts(
@@ -719,7 +754,9 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
 
   Widget _timetableTime(DateTime time, bool isToday) {
     return Text(
-      DateFormat('hh:mm').format(time),
+      DateFormat(
+        selectedTimeFormat == '24-hour' ? 'HH:mm' : 'hh:mm',
+      ).format(time),
       textAlign: TextAlign.center,
       style: TextStyle(
         color: isToday ? const Color(0xFF08734A) : const Color(0xFF35413B),

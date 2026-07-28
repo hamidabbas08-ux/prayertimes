@@ -8,6 +8,8 @@ class MoreScreen extends StatelessWidget {
     required this.enabledPrayerCount,
     required this.isRefreshingLocation,
     required this.isSchedulingAlerts,
+    required this.timeFormat,
+    required this.onTimeFormatChanged,
     required this.onRefreshLocation,
     required this.onRefreshAzanSchedule,
   });
@@ -17,6 +19,8 @@ class MoreScreen extends StatelessWidget {
   final int enabledPrayerCount;
   final bool isRefreshingLocation;
   final bool isSchedulingAlerts;
+  final String timeFormat;
+  final Future<void> Function(String value) onTimeFormatChanged;
   final Future<void> Function() onRefreshLocation;
   final Future<void> Function() onRefreshAzanSchedule;
 
@@ -129,10 +133,13 @@ class MoreScreen extends StatelessWidget {
                       indent: 58,
                       color: Color(0xFFE8E6DF),
                     ),
-                    _buildInfoTile(
+                    _buildSelectableTile(
                       icon: Icons.schedule_rounded,
                       title: 'Time Format',
-                      value: '12-hour',
+                      value: timeFormat,
+                      onTap: () {
+                        _showTimeFormatSheet(context);
+                      },
                     ),
                     const Divider(
                       height: 1,
@@ -297,6 +304,145 @@ class MoreScreen extends StatelessWidget {
               ),
               const SizedBox(width: 9),
               trailing,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectableTile({
+    required IconData icon,
+    required String title,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(15, 14, 13, 14),
+          child: Row(
+            children: [
+              _tileIcon(icon),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF27332D),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Color(0xFF08734A),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 3),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF08734A),
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showTimeFormatSheet(BuildContext context) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFFFFFDF9),
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 2, 18, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Time Format',
+                  style: TextStyle(
+                    color: Color(0xFF075B3A),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _buildTimeFormatOption(context: sheetContext, value: '12-hour'),
+                const SizedBox(height: 8),
+                _buildTimeFormatOption(context: sheetContext, value: '24-hour'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null || selected == timeFormat) return;
+
+    await onTimeFormatChanged(selected);
+  }
+
+  Widget _buildTimeFormatOption({
+    required BuildContext context,
+    required String value,
+  }) {
+    final selected = value == timeFormat;
+
+    return Material(
+      color: selected ? const Color(0xFFE5F2EA) : const Color(0xFFF8F8F4),
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () {
+          Navigator.of(context).pop(value);
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFF87BE9F)
+                  : const Color(0xFFE5E5DE),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: selected
+                        ? const Color(0xFF075B3A)
+                        : const Color(0xFF34413B),
+                    fontSize: 15,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+              Icon(
+                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                color: selected
+                    ? const Color(0xFF08734A)
+                    : const Color(0xFFABB1AD),
+              ),
             ],
           ),
         ),
