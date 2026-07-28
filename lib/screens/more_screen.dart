@@ -10,8 +10,10 @@ class MoreScreen extends StatelessWidget {
     required this.isSchedulingAlerts,
     required this.timeFormat,
     required this.asrMethod,
+    required this.calculationMethod,
     required this.onTimeFormatChanged,
     required this.onAsrMethodChanged,
+    required this.onCalculationMethodChanged,
     required this.onRefreshLocation,
     required this.onRefreshAzanSchedule,
   });
@@ -23,8 +25,10 @@ class MoreScreen extends StatelessWidget {
   final bool isSchedulingAlerts;
   final String timeFormat;
   final String asrMethod;
+  final String calculationMethod;
   final Future<void> Function(String value) onTimeFormatChanged;
   final Future<void> Function(String value) onAsrMethodChanged;
+  final Future<void> Function(String value) onCalculationMethodChanged;
   final Future<void> Function() onRefreshLocation;
   final Future<void> Function() onRefreshAzanSchedule;
 
@@ -73,10 +77,13 @@ class MoreScreen extends StatelessWidget {
                       indent: 58,
                       color: Color(0xFFE8E6DF),
                     ),
-                    _buildInfoTile(
+                    _buildSelectableTile(
                       icon: Icons.calculate_outlined,
                       title: 'Calculation Method',
-                      value: 'Dubai',
+                      value: calculationMethod,
+                      onTap: () {
+                        _showCalculationMethodSheet(context);
+                      },
                     ),
                     const Divider(
                       height: 1,
@@ -358,6 +365,144 @@ class MoreScreen extends StatelessWidget {
                 Icons.chevron_right_rounded,
                 color: Color(0xFF08734A),
                 size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCalculationMethodSheet(BuildContext context) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFFFFFDF9),
+      showDragHandle: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 2, 18, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Calculation Method',
+                  style: TextStyle(
+                    color: Color(0xFF075B3A),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                const Text(
+                  'Choose the authority used to calculate prayer times.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF747D78), fontSize: 12),
+                ),
+                const SizedBox(height: 14),
+                _buildCalculationMethodOption(
+                  context: sheetContext,
+                  value: 'Dubai',
+                  subtitle: 'Commonly used in the United Arab Emirates',
+                ),
+                const SizedBox(height: 8),
+                _buildCalculationMethodOption(
+                  context: sheetContext,
+                  value: 'Muslim World League',
+                  subtitle: 'Widely used internationally',
+                ),
+                const SizedBox(height: 8),
+                _buildCalculationMethodOption(
+                  context: sheetContext,
+                  value: 'Karachi',
+                  subtitle: 'University of Islamic Sciences, Karachi',
+                ),
+                const SizedBox(height: 8),
+                _buildCalculationMethodOption(
+                  context: sheetContext,
+                  value: 'Umm al-Qura',
+                  subtitle: 'Umm al-Qura University, Makkah',
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null || selected == calculationMethod) {
+      return;
+    }
+
+    await onCalculationMethodChanged(selected);
+  }
+
+  Widget _buildCalculationMethodOption({
+    required BuildContext context,
+    required String value,
+    required String subtitle,
+  }) {
+    final selected = value == calculationMethod;
+
+    return Material(
+      color: selected ? const Color(0xFFE5F2EA) : const Color(0xFFF8F8F4),
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () {
+          Navigator.of(context).pop(value);
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFF87BE9F)
+                  : const Color(0xFFE5E5DE),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      value,
+                      style: TextStyle(
+                        color: selected
+                            ? const Color(0xFF075B3A)
+                            : const Color(0xFF34413B),
+                        fontSize: 15,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Color(0xFF7A837E),
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                color: selected
+                    ? const Color(0xFF08734A)
+                    : const Color(0xFFABB1AD),
               ),
             ],
           ),

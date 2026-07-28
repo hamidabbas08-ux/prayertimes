@@ -63,6 +63,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
   bool prayerPreferencesLoaded = false;
   String selectedTimeFormat = '12-hour';
   String selectedAsrMethod = 'Shafi';
+  String selectedCalculationMethod = 'Dubai';
 
   final SharedPreferencesAsync prayerPreferences = SharedPreferencesAsync();
 
@@ -94,6 +95,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
     _loadPrayerAlertPreferences();
     _loadTimeFormatPreference();
     _loadAsrMethodPreference();
+    _loadCalculationMethodPreference();
     _calculatePrayerTimes();
 
     countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -249,8 +251,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
   void _calculatePrayerTimes() {
     final coordinates = Coordinates(latitude, longitude);
 
-    final parameters = CalculationMethodParameters.dubai()
-      ..madhab = selectedAsrMethod == 'Hanafi' ? Madhab.hanafi : Madhab.shafi;
+    final parameters = _buildCalculationParameters();
 
     final now = DateTime.now();
 
@@ -333,10 +334,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
       } else {
         final coordinates = Coordinates(latitude, longitude);
 
-        final parameters = CalculationMethodParameters.dubai()
-          ..madhab = selectedAsrMethod == 'Hanafi'
-              ? Madhab.hanafi
-              : Madhab.shafi;
+        final parameters = _buildCalculationParameters();
 
         final tomorrowTimes = PrayerTimes(
           coordinates: coordinates,
@@ -380,6 +378,72 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
 
     return '${latitude.abs().toStringAsFixed(4)}° $latitudeDirection, '
         '${longitude.abs().toStringAsFixed(4)}° $longitudeDirection';
+  }
+
+  CalculationParameters _buildCalculationParameters() {
+    late final CalculationParameters parameters;
+
+    switch (selectedCalculationMethod) {
+      case 'Muslim World League':
+        parameters = CalculationMethodParameters.muslimWorldLeague();
+        break;
+      case 'Karachi':
+        parameters = CalculationMethodParameters.karachi();
+        break;
+      case 'Umm al-Qura':
+        parameters = CalculationMethodParameters.ummAlQura();
+        break;
+      case 'Dubai':
+      default:
+        parameters = CalculationMethodParameters.dubai();
+        break;
+    }
+
+    parameters.madhab = selectedAsrMethod == 'Hanafi'
+        ? Madhab.hanafi
+        : Madhab.shafi;
+
+    return parameters;
+  }
+
+  Future<void> _loadCalculationMethodPreference() async {
+    final storedMethod = await prayerPreferences.getString(
+      'calculation_method',
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      selectedCalculationMethod = storedMethod ?? 'Dubai';
+      _calculatePrayerTimes();
+    });
+  }
+
+  Future<void> _changeCalculationMethod(String method) async {
+    if (selectedCalculationMethod == method) return;
+
+    setState(() {
+      selectedCalculationMethod = method;
+      _calculatePrayerTimes();
+    });
+
+    await prayerPreferences.setString('calculation_method', method);
+
+    if (!mounted) return;
+
+    await _configurePrayerAlerts(
+      showSuccessMessage: false,
+      requestPermissions: false,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Calculation method changed to $method.'),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _loadAsrMethodPreference() async {
@@ -501,8 +565,10 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
           isSchedulingAlerts: isConfiguringPrayerAlerts,
           timeFormat: selectedTimeFormat,
           asrMethod: selectedAsrMethod,
+          calculationMethod: selectedCalculationMethod,
           onTimeFormatChanged: _changeTimeFormat,
           onAsrMethodChanged: _changeAsrMethod,
+          onCalculationMethodChanged: _changeCalculationMethod,
           onRefreshLocation: _loadCurrentLocation,
           onRefreshAzanSchedule: () async {
             await _configurePrayerAlerts(
@@ -574,8 +640,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
     final rows = <MonthlyPrayerRow>[];
     final coordinates = Coordinates(latitude, longitude);
 
-    final parameters = CalculationMethodParameters.dubai()
-      ..madhab = selectedAsrMethod == 'Hanafi' ? Madhab.hanafi : Madhab.shafi;
+    final parameters = _buildCalculationParameters();
 
     final numberOfDays = DateTime(
       timetableMonth.year,
@@ -1350,8 +1415,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
     final schedules = <PrayerNotificationSchedule>[];
     final coordinates = Coordinates(latitude, longitude);
 
-    final parameters = CalculationMethodParameters.dubai()
-      ..madhab = selectedAsrMethod == 'Hanafi' ? Madhab.hanafi : Madhab.shafi;
+    final parameters = _buildCalculationParameters();
 
     final startingDate = DateTime.now();
 
