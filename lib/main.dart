@@ -64,6 +64,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
   String selectedTimeFormat = '12-hour';
   String selectedAsrMethod = 'Shafi';
   String selectedCalculationMethod = 'Dubai';
+  int hijriAdjustmentDays = 0;
 
   final SharedPreferencesAsync prayerPreferences = SharedPreferencesAsync();
 
@@ -96,6 +97,7 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
     _loadTimeFormatPreference();
     _loadAsrMethodPreference();
     _loadCalculationMethodPreference();
+    _loadHijriAdjustmentPreference();
     _calculatePrayerTimes();
 
     countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -380,6 +382,41 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
         '${longitude.abs().toStringAsFixed(4)}° $longitudeDirection';
   }
 
+  Future<void> _loadHijriAdjustmentPreference() async {
+    final storedAdjustment = await prayerPreferences.getInt(
+      'hijri_adjustment_days',
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      hijriAdjustmentDays = storedAdjustment ?? 0;
+    });
+  }
+
+  Future<void> _changeHijriAdjustment(int days) async {
+    if (hijriAdjustmentDays == days) return;
+
+    setState(() {
+      hijriAdjustmentDays = days;
+    });
+
+    await prayerPreferences.setInt('hijri_adjustment_days', days);
+
+    if (!mounted) return;
+
+    final message = switch (days) {
+      0 => 'Hijri date adjustment removed.',
+      1 => 'Hijri date adjusted by +1 day.',
+      -1 => 'Hijri date adjusted by -1 day.',
+      _ => 'Hijri date adjusted by ${days > 0 ? '+' : ''}$days days.',
+    };
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+    );
+  }
+
   CalculationParameters _buildCalculationParameters() {
     late final CalculationParameters parameters;
 
@@ -566,9 +603,11 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
           timeFormat: selectedTimeFormat,
           asrMethod: selectedAsrMethod,
           calculationMethod: selectedCalculationMethod,
+          hijriAdjustmentDays: hijriAdjustmentDays,
           onTimeFormatChanged: _changeTimeFormat,
           onAsrMethodChanged: _changeAsrMethod,
           onCalculationMethodChanged: _changeCalculationMethod,
+          onHijriAdjustmentChanged: _changeHijriAdjustment,
           onRefreshLocation: _loadCurrentLocation,
           onRefreshAzanSchedule: () async {
             await _configurePrayerAlerts(
@@ -1704,7 +1743,8 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
 
   Widget _buildDateCard() {
     final now = currentTime;
-    final hijriDate = HijriCalendar.fromDate(now);
+    final adjustedHijriSource = now.add(Duration(days: hijriAdjustmentDays));
+    final hijriDate = HijriCalendar.fromDate(adjustedHijriSource);
     final formattedHijriDate =
         '${hijriDate.hDay} ${hijriDate.getLongMonthName()} '
         '${hijriDate.hYear} AH';

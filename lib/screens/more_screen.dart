@@ -11,9 +11,11 @@ class MoreScreen extends StatelessWidget {
     required this.timeFormat,
     required this.asrMethod,
     required this.calculationMethod,
+    required this.hijriAdjustmentDays,
     required this.onTimeFormatChanged,
     required this.onAsrMethodChanged,
     required this.onCalculationMethodChanged,
+    required this.onHijriAdjustmentChanged,
     required this.onRefreshLocation,
     required this.onRefreshAzanSchedule,
   });
@@ -26,9 +28,11 @@ class MoreScreen extends StatelessWidget {
   final String timeFormat;
   final String asrMethod;
   final String calculationMethod;
+  final int hijriAdjustmentDays;
   final Future<void> Function(String value) onTimeFormatChanged;
   final Future<void> Function(String value) onAsrMethodChanged;
   final Future<void> Function(String value) onCalculationMethodChanged;
+  final Future<void> Function(int days) onHijriAdjustmentChanged;
   final Future<void> Function() onRefreshLocation;
   final Future<void> Function() onRefreshAzanSchedule;
 
@@ -153,6 +157,19 @@ class MoreScreen extends StatelessWidget {
                       value: timeFormat,
                       onTap: () {
                         _showTimeFormatSheet(context);
+                      },
+                    ),
+                    const Divider(
+                      height: 1,
+                      indent: 58,
+                      color: Color(0xFFE8E6DF),
+                    ),
+                    _buildSelectableTile(
+                      icon: Icons.calendar_today_outlined,
+                      title: 'Hijri Date Adjustment',
+                      value: _hijriAdjustmentLabel(),
+                      onTap: () {
+                        _showHijriAdjustmentSheet(context);
                       },
                     ),
                     const Divider(
@@ -617,6 +634,127 @@ class MoreScreen extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+              Icon(
+                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                color: selected
+                    ? const Color(0xFF08734A)
+                    : const Color(0xFFABB1AD),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _hijriAdjustmentLabel() {
+    if (hijriAdjustmentDays == 0) {
+      return 'No adjustment';
+    }
+
+    final sign = hijriAdjustmentDays > 0 ? '+' : '';
+
+    return '$sign$hijriAdjustmentDays '
+        '${hijriAdjustmentDays.abs() == 1 ? 'day' : 'days'}';
+  }
+
+  Future<void> _showHijriAdjustmentSheet(BuildContext context) async {
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: const Color(0xFFFFFDF9),
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 2, 18, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Hijri Date Adjustment',
+                  style: TextStyle(
+                    color: Color(0xFF075B3A),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                const Text(
+                  'Adjust the Hijri date according to local moon sighting.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF747D78), fontSize: 12),
+                ),
+                const SizedBox(height: 14),
+                for (final days in const [-2, -1, 0, 1, 2]) ...[
+                  _buildHijriAdjustmentOption(
+                    context: sheetContext,
+                    days: days,
+                  ),
+                  if (days != 2) const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null || selected == hijriAdjustmentDays) {
+      return;
+    }
+
+    await onHijriAdjustmentChanged(selected);
+  }
+
+  Widget _buildHijriAdjustmentOption({
+    required BuildContext context,
+    required int days,
+  }) {
+    final selected = days == hijriAdjustmentDays;
+
+    final label = switch (days) {
+      0 => 'No adjustment',
+      1 => '+1 day',
+      -1 => '-1 day',
+      _ => '${days > 0 ? '+' : ''}$days days',
+    };
+
+    return Material(
+      color: selected ? const Color(0xFFE5F2EA) : const Color(0xFFF8F8F4),
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () {
+          Navigator.of(context).pop(days);
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFF87BE9F)
+                  : const Color(0xFFE5E5DE),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: selected
+                        ? const Color(0xFF075B3A)
+                        : const Color(0xFF34413B),
+                    fontSize: 15,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
                 ),
               ),
               Icon(
