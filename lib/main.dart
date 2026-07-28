@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:prayertimes/screens/duas_screen.dart';
+import 'package:prayertimes/screens/more_screen.dart';
 import 'package:prayertimes/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -415,10 +416,21 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
       case 3:
         return const DuasScreen();
       case 4:
-        return _buildComingSoonScreen(
-          icon: Icons.more_horiz_rounded,
-          title: 'More',
-          message: 'Settings and additional features will be available here.',
+        return MoreScreen(
+          locationName: locationName,
+          coordinatesText: coordinatesText,
+          enabledPrayerCount: enabledPrayerAlerts.values
+              .where((enabled) => enabled)
+              .length,
+          isRefreshingLocation: isLoadingLocation,
+          isSchedulingAlerts: isConfiguringPrayerAlerts,
+          onRefreshLocation: _loadCurrentLocation,
+          onRefreshAzanSchedule: () async {
+            await _configurePrayerAlerts(
+              showSuccessMessage: true,
+              requestPermissions: true,
+            );
+          },
         );
       case 0:
       default:
@@ -744,68 +756,6 @@ class _PrayerHomeScreenState extends State<PrayerHomeScreen>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildComingSoonScreen({
-    required IconData icon,
-    required String title,
-    required String message,
-  }) {
-    return Column(
-      children: [
-        _buildSimplePageHeader(title),
-        Expanded(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(26),
-                decoration: _whiteCardDecoration(),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 76,
-                      height: 76,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE8F3ED),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        icon,
-                        color: const Color(0xFF08734A),
-                        size: 38,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF075B3A),
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      message,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF68736D),
-                        fontSize: 14,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
