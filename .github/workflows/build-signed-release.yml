@@ -103,34 +103,65 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk \
             build/app/outputs/bundle/release/app-release.aab
 
-      - name: Verify Azan audio inside APK and AAB
+      - name: Verify Azan resources in signed release
         shell: bash
         run: |
-          echo "===== APK AZAN RESOURCES ====="
-          unzip -l build/app/outputs/flutter-apk/app-release.apk             | grep -E 'res/raw/azan_(normal|fajr)\.mp3'             | tee /tmp/apk-azan-resources.txt
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          AAB="build/app/outputs/bundle/release/app-release.aab"
 
-          grep -q 'azan_normal.mp3' /tmp/apk-azan-resources.txt || {
-            echo "ERROR: azan_normal.mp3 is missing from signed APK."
+          echo "===== SIGNED FILES ====="
+          ls -lh "$APK" "$AAB"
+
+          echo
+          echo "===== APK ARCHIVE AZAN ENTRIES ====="
+          unzip -l "$APK" | grep -Ei 'azan|res/raw' || true
+
+          echo
+          echo "===== APK RESOURCE TABLE ====="
+          AAPT2="$(find "$ANDROID_SDK_ROOT/build-tools" \
+            -type f -name aapt2 \
+            | sort -V \
+            | tail -1)"
+
+          if [ -z "$AAPT2" ]; then
+            echo "ERROR: aapt2 was not found."
+            exit 1
+          fi
+
+          echo "Using aapt2: $AAPT2"
+
+          "$AAPT2" dump resources "$APK" \
+            | grep -Ei 'azan_normal|azan_fajr' \
+            | tee /tmp/apk-azan-resources.txt
+
+          grep -qi 'azan_normal' /tmp/apk-azan-resources.txt || {
+            echo "ERROR: azan_normal is not registered in APK resources."
             exit 1
           }
 
-          grep -q 'azan_fajr.mp3' /tmp/apk-azan-resources.txt || {
-            echo "ERROR: azan_fajr.mp3 is missing from signed APK."
+          grep -qi 'azan_fajr' /tmp/apk-azan-resources.txt || {
+            echo "ERROR: azan_fajr is not registered in APK resources."
             exit 1
           }
 
-          echo "===== AAB AZAN RESOURCES ====="
-          unzip -l build/app/outputs/bundle/release/app-release.aab             | grep -E 'base/res/raw/azan_(normal|fajr)\.mp3'             | tee /tmp/aab-azan-resources.txt
+          echo
+          echo "===== AAB ARCHIVE AZAN ENTRIES ====="
+          unzip -l "$AAB" \
+            | grep -Ei 'azan_normal|azan_fajr|res/raw' \
+            | tee /tmp/aab-azan-resources.txt
 
-          grep -q 'azan_normal.mp3' /tmp/aab-azan-resources.txt || {
-            echo "ERROR: azan_normal.mp3 is missing from signed AAB."
+          grep -qi 'azan_normal' /tmp/aab-azan-resources.txt || {
+            echo "ERROR: azan_normal is missing from signed AAB."
             exit 1
           }
 
-          grep -q 'azan_fajr.mp3' /tmp/aab-azan-resources.txt || {
-            echo "ERROR: azan_fajr.mp3 is missing from signed AAB."
+          grep -qi 'azan_fajr' /tmp/aab-azan-resources.txt || {
+            echo "ERROR: azan_fajr is missing from signed AAB."
             exit 1
           }
+
+          echo
+          echo "SUCCESS: Both Azan resources exist in signed APK and AAB."
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
