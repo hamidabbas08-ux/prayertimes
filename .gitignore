@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Android signing secrets
+android/app/prayer-times-upload-key.jks
+android/key.properties
+*.jks
+*.keystore
+
+# Local temporary backup files
+*.backup_before_*
+*.backup_before*
