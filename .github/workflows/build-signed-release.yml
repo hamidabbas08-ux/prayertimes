@@ -103,6 +103,35 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk \
             build/app/outputs/bundle/release/app-release.aab
 
+      - name: Verify Azan audio inside APK and AAB
+        shell: bash
+        run: |
+          echo "===== APK AZAN RESOURCES ====="
+          unzip -l build/app/outputs/flutter-apk/app-release.apk             | grep -E 'res/raw/azan_(normal|fajr)\.mp3'             | tee /tmp/apk-azan-resources.txt
+
+          grep -q 'azan_normal.mp3' /tmp/apk-azan-resources.txt || {
+            echo "ERROR: azan_normal.mp3 is missing from signed APK."
+            exit 1
+          }
+
+          grep -q 'azan_fajr.mp3' /tmp/apk-azan-resources.txt || {
+            echo "ERROR: azan_fajr.mp3 is missing from signed APK."
+            exit 1
+          }
+
+          echo "===== AAB AZAN RESOURCES ====="
+          unzip -l build/app/outputs/bundle/release/app-release.aab             | grep -E 'base/res/raw/azan_(normal|fajr)\.mp3'             | tee /tmp/aab-azan-resources.txt
+
+          grep -q 'azan_normal.mp3' /tmp/aab-azan-resources.txt || {
+            echo "ERROR: azan_normal.mp3 is missing from signed AAB."
+            exit 1
+          }
+
+          grep -q 'azan_fajr.mp3' /tmp/aab-azan-resources.txt || {
+            echo "ERROR: azan_fajr.mp3 is missing from signed AAB."
+            exit 1
+          }
+
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
